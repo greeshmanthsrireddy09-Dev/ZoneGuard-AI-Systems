@@ -1,11 +1,12 @@
 from fastapi.testclient import TestClient
 import pytest
+from collections.abc import Iterator
 
 from backend.main import app
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
@@ -17,6 +18,19 @@ app = FastAPI(title="ZoneGuard", version="1.0.0")
 app.include_router(router)
 configure_logging()
 app.add_middleware(RequestTraceMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://greeshmanthsrireddy09-dev.github.io",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 ui_dir = Path(__file__).resolve().parents[1] / "dashboard_web"
 if ui_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(ui_dir), html=True), name="ui")
