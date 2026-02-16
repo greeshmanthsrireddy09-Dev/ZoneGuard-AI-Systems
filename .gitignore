@@ -1,0 +1,13 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.venv/
+venv/
+.env
+*.db
+zoneguard.db
+zoneguard_memory/
+.DS_Store
