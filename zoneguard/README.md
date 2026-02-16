@@ -1,228 +1,152 @@
-﻿# ZoneGuard
+﻿# ZoneGuard (Simple Guide)
 
-ZoneGuard is a production-style multi-agent AI system for delivery-zone reliability. It simulates operational data, predicts availability drops, detects anomalies, explains root causes with an LLM interface, proposes corrective actions, and captures operator feedback for continuous improvement.
+ZoneGuard is an AI assistant for delivery operations.
+It helps answer one practical question:
 
-## Architecture
+"Will a delivery zone's availability drop soon, why, and what should we do now?"
 
-- Backend API: FastAPI (`backend/main.py`)
-- Frontend dashboard: Streamlit (`dashboard/app.py`)
-- Database: SQLite via SQLAlchemy async (`backend/db.py`)
-- Forecasting agent: XGBoost (`backend/agents/forecast_agent.py`)
-- Anomaly agent: IsolationForest (`backend/agents/anomaly_agent.py`)
-- Reasoning agent: Ollama + Chroma memory (`backend/agents/reasoning_agent.py`)
-- Action agent: Rule-based planner (`backend/agents/action_agent.py`)
-- Feedback loop: `/feedback` persists to SQLite + vector memory
-- Async orchestrator: `/pipeline/zone` executes full agent chain with step traces
-- Replay evaluation: `/evaluate/replay` returns technical and business impact metrics
-- Tailwind + Framer Motion UI: `/ui`
-- Observability: request ID + latency headers (`X-Request-Id`, `X-Response-Time-Ms`)
+## What This Project Does (In Plain English)
 
-## Folder Layout
+Imagine each zone is a small mini-city for deliveries.
+ZoneGuard watches signals like demand, drivers, inventory, and weather.
+Then it does this:
+
+1. Predicts if availability may drop soon.
+2. Flags unusual behavior (anomalies).
+3. Explains likely root cause in plain text/JSON.
+4. Suggests corrective actions.
+5. Learns from feedback.
+
+## What "Availability" Means
+
+Availability is a score between `0` and `1`.
+- `1.0` means very healthy operations.
+- `0.0` means severe operational stress.
+
+Lower availability usually means customers may face delays, cancellations, or poor service quality.
+
+## How It Works End-to-End
+
+1. App starts.
+2. If no data exists, synthetic data is auto-generated.
+3. Forecast agent predicts future availability.
+4. Anomaly agent finds unusual events.
+5. Reasoning agent explains likely cause.
+6. Action agent proposes fixes.
+7. Feedback is saved for continuous improvement.
+
+## Dashboard Insights (What Each Number Means)
+
+When you open `/ui`, you will see these insights:
+
+- `Risk` chip (`Stable`, `Watch`, `High Risk`):
+  Simple traffic-light style alert from forecast + anomaly volume.
+
+- `Forecast Points`:
+  Number of future time steps predicted.
+
+- `Anomalies`:
+  Count of unusual events found in the selected lookback window.
+
+- `Latest Availability`:
+  Most recent predicted availability value.
+
+- `Anomaly Radar` table:
+  Shows when unusual events happened and how strong the anomaly score is.
+
+- `Action Board`:
+  Suggested steps like rebalancing drivers or inventory.
+
+- `Business Impact Replay`:
+  Offline evaluation numbers showing estimated impact.
+
+## Business Impact Metrics (Layman Explanation)
+
+From `/evaluate/replay`, you get:
+
+- `forecast_mape`:
+  Forecast average percentage error. Lower is better.
+
+- `forecast_rmse`:
+  Forecast error magnitude. Lower is better.
+
+- `anomaly_events`:
+  How many unusual events were detected.
+
+- `incident_prevention_rate`:
+  Estimated share of incidents the system could catch early.
+
+- `estimated_mttr_reduction_minutes`:
+  Estimated minutes saved in resolving incidents.
+
+- `action_acceptance_rate`:
+  Estimated ratio of action recommendations likely accepted by ops.
+
+- `estimated_ops_hours_saved`:
+  Estimated manual ops hours saved.
+
+## Project Structure
 
 ```text
 zoneguard/
-+-- backend/
-¦   +-- main.py
-¦   +-- api/
-¦   +-- agents/
-¦   ¦   +-- forecast_agent.py
-¦   ¦   +-- anomaly_agent.py
-¦   ¦   +-- reasoning_agent.py
-¦   ¦   +-- action_agent.py
-¦   +-- db.py
-+-- dashboard/
-¦   +-- app.py
-¦   +-- components/
-+-- data/
-¦   +-- simulate.py
-¦   +-- loader.py
-+-- evaluation/
-¦   +-- metrics.py
-¦   +-- dashboard.py
-+-- tests/
-+-- requirements.txt
-+-- README.md
-+-- deploy/
+├── backend/
+│   ├── main.py
+│   ├── api/
+│   ├── agents/
+│   └── db.py
+├── dashboard/
+├── dashboard_web/
+├── data/
+├── evaluation/
+├── tests/
+├── requirements.txt
+└── README.md
 ```
 
-## Quick Start
+## Quick Start (Local, No Cloud Required)
 
-1. Create environment and install dependencies:
-
+1. Create and activate virtual environment
 ```bash
 python -m venv .venv
-. .venv/Scripts/activate  # Windows
+. .venv/Scripts/activate
+```
+
+2. Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-2. Run backend API:
-
+3. Start backend
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
 
-3. Open web UI:
+4. Open UI
+- Main UI: `http://127.0.0.1:8000/ui`
+- API docs: `http://127.0.0.1:8000/docs`
 
-`http://127.0.0.1:8000/ui`
+## Main API Endpoints
 
-The backend seeds synthetic data on startup if the database is empty.
+- `GET /predict?zone=zone_01&horizon=6`
+- `POST /anomaly`
+- `POST /reason`
+- `POST /action`
+- `POST /feedback`
+- `POST /pipeline/zone`
+- `POST /evaluate/replay`
+- `GET /health`
+- `GET /ready`
 
-## Data Simulation
+## Example API Calls
 
-Generate synthetic data manually:
-
-```bash
-python data/simulate.py
+### Predict
+```json
+GET /predict?zone=zone_01&horizon=6
 ```
 
-Fields generated:
-- `zone_id`
-- `timestamp`
-- `demand`
-- `drivers`
-- `inventory`
-- `weather`
-- `availability`
-
-## API Contract
-
-### `GET /predict?zone=zone_01&horizon=6`
-Response schema:
-
+### Full Pipeline
 ```json
-{
-  "zone_id": "zone_01",
-  "horizon_hours": 6,
-  "predictions": [
-    {
-      "timestamp": "2026-02-16T12:00:00",
-      "predicted_availability": 0.71
-    }
-  ]
-}
-```
-
-### `POST /anomaly`
-Request schema:
-
-```json
-{
-  "zone": "zone_01",
-  "lookback": 120
-}
-```
-
-Response schema:
-
-```json
-{
-  "zone_id": "zone_01",
-  "events": [
-    {
-      "event_id": "zone_01:2026-02-16T11:00:00",
-      "timestamp": "2026-02-16T11:00:00",
-      "zone_id": "zone_01",
-      "score": 0.92,
-      "snapshot": {
-        "demand": 120.5,
-        "drivers": 60.0,
-        "inventory": 70.3,
-        "availability": 0.44,
-        "weather": "rain"
-      }
-    }
-  ]
-}
-```
-
-### `POST /reason`
-Request schema:
-
-```json
-{
-  "event": {
-    "event_id": "zone_01:2026-02-16T11:00:00",
-    "snapshot": {
-      "demand": 120.5,
-      "drivers": 60,
-      "inventory": 70.3,
-      "availability": 0.44,
-      "weather": "rain"
-    }
-  }
-}
-```
-
-Response schema:
-
-```json
-{
-  "event_id": "zone_01:2026-02-16T11:00:00",
-  "prompt": "You are ZoneGuard root-cause analyst...",
-  "explanation": "{\"root_cause\":\"Demand-driver imbalance...\"}"
-}
-```
-
-### `POST /action`
-Request schema:
-
-```json
-{
-  "event": {
-    "event_id": "zone_01:2026-02-16T11:00:00",
-    "snapshot": {
-      "demand": 120.5,
-      "drivers": 60,
-      "inventory": 70.3
-    }
-  },
-  "explanation": "{\"root_cause\":\"Demand-driver imbalance\"}"
-}
-```
-
-Response schema:
-
-```json
-{
-  "event_id": "zone_01:2026-02-16T11:00:00",
-  "recommended_actions": [
-    {
-      "action": "Rebalance drivers",
-      "detail": "Shift drivers from neighboring zones within next 30 minutes.",
-      "priority": "high"
-    }
-  ],
-  "reasoning_reference": "{\"root_cause\":\"Demand-driver imbalance\"}"
-}
-```
-
-### `POST /feedback`
-Request schema:
-
-```json
-{
-  "event_id": "zone_01:2026-02-16T11:00:00",
-  "rating": 5,
-  "correction": "Weather impact was underestimated.",
-  "metadata": {
-    "submitted_by": "ops_lead"
-  }
-}
-```
-
-Response schema:
-
-```json
-{
-  "status": "ok",
-  "stored_at": "2026-02-16T12:12:12.000000"
-}
-```
-
-### `POST /pipeline/zone`
-Request schema:
-
-```json
+POST /pipeline/zone
 {
   "zone": "zone_01",
   "horizon": 6,
@@ -230,101 +154,31 @@ Request schema:
 }
 ```
 
-### `POST /evaluate/replay`
-Request schema:
-
+### Replay Evaluation
 ```json
+POST /evaluate/replay
 {
   "zone": "zone_01",
   "horizon": 6,
   "lookback": 120
 }
 ```
-
-Response schema:
-
-```json
-{
-  "zone_id": "zone_01",
-  "forecast_mape": 0.0742,
-  "forecast_rmse": 0.0581,
-  "anomaly_events": 7,
-  "generated_actions": 14,
-  "business_impact": {
-    "incident_prevention_rate": 1.0,
-    "estimated_mttr_reduction_minutes": 34.8,
-    "action_acceptance_rate": 0.6,
-    "estimated_ops_hours_saved": 5.06
-  }
-}
-```
-
-### `GET /health`
-Liveness check: `{\"status\":\"ok\"}`
-
-### `GET /ready`
-Readiness check: `{\"status\":\"ready\"}`
-
-Response schema:
-
-```json
-{
-  "zone_id": "zone_01",
-  "generated_at": "2026-02-16T12:45:00+00:00",
-  "traces": [
-    {"step": "forecast", "status": "ok", "latency_ms": 37.1, "details": {"count": 6}},
-    {"step": "anomaly", "status": "ok", "latency_ms": 18.4, "details": {"events": 4}}
-  ],
-  "forecast": {},
-  "anomalies": {},
-  "reasoning": {},
-  "actions": {}
-}
-```
-
-## Feedback Loop
-
-- Stores corrections in SQL (`feedback_records`) for auditability.
-- Pushes feedback text into Chroma (`reasoning_history`) for future context retrieval.
-- Reasoning agent queries prior context by event ID before generating explanations.
 
 ## Testing
 
 Run all tests:
-
 ```bash
 pytest -q
 ```
 
-Test suite includes:
-- Unit tests for simulation
-- Integration tests for agents
-- API tests for all required endpoints
+## Notes
 
-## Deployment Guide
+- This project is fully usable locally.
+- Synthetic data is used by default.
+- You can later connect real data sources if needed.
 
-### Local Dockerless Deployment
+## Who This Is For
 
-1. Install dependencies and ensure Python 3.10+.
-2. Start API with Uvicorn on port 8000.
-3. Start Streamlit dashboard on port 8501.
-4. Configure reverse proxy (Nginx/Caddy) for production HTTPS.
-
-### Production Considerations
-
-- Replace SQLite with Postgres by changing `DATABASE_URL` in `backend/db.py`.
-- Run FastAPI with multiple workers behind Gunicorn/Uvicorn.
-- Enable structured logging and centralized monitoring.
-- Configure Ollama service endpoint and model pre-pull (`llama3.1` or equivalent).
-- Use persistent volumes for `zoneguard.db` and `zoneguard_memory`.
-- Add authentication/authorization before exposing APIs externally.
-
-### Optional Container Deployment
-
-Create Dockerfiles for backend and dashboard, then orchestrate with Docker Compose or Kubernetes. Keep Chroma and database volumes mounted for durability.
-
-### Included Deployment Files
-- `deploy/Dockerfile.backend`
-- `deploy/docker-compose.yml`
-- `.github/workflows/ci.yml`
-
+- Ops teams who need fast incident insights.
+- AI/ML engineers building multi-agent systems.
+- Recruiters/interviewers reviewing production-style AI architecture.
