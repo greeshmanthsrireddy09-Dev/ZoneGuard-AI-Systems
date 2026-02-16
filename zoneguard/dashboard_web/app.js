@@ -21,7 +21,10 @@ function riskState(latestPred, anomalyCount) {
 }
 
 async function callApi(path, { method = "GET", params = null, body = null } = {}) {
-  const url = new URL(path, window.location.origin);
+  const base = window.localStorage.getItem("zoneguard_api_base") || "http://127.0.0.1:8000";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  const url = new URL(normalizedPath, normalizedBase);
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
   const res = await fetch(url.toString(), {
     method,
@@ -62,6 +65,7 @@ function App() {
   const [horizon, setHorizon] = useState(6);
   const [lookback, setLookback] = useState(120);
   const [status, setStatus] = useState("Ready");
+  const [apiBase, setApiBase] = useState(window.localStorage.getItem("zoneguard_api_base") || "http://127.0.0.1:8000");
 
   const [forecast, setForecast] = useState(null);
   const [anomaly, setAnomaly] = useState(null);
@@ -130,6 +134,11 @@ function App() {
     } catch (err) {
       setStatus(`Error: ${err.message}`);
     }
+  }
+
+  function saveApiBase() {
+    window.localStorage.setItem("zoneguard_api_base", apiBase);
+    setStatus(`API base saved: ${apiBase}`);
   }
 
   async function runForecastOnly() {
@@ -236,6 +245,11 @@ function App() {
             <div>
               <label className="text-xs uppercase text-slate-400">Lookback</label>
               <input type="number" min="24" max="240" value=${lookback} onChange=${(e) => setLookback(e.target.value)} className="w-full mt-1 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs uppercase text-slate-400">API Base URL</label>
+              <input value=${apiBase} onChange=${(e) => setApiBase(e.target.value)} className="w-full mt-1 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sm" />
+              <button onClick=${saveApiBase} className="w-full mt-2 rounded-xl bg-slate-700 border border-slate-500 font-semibold py-2 text-sm hover:bg-slate-600">Save API URL</button>
             </div>
 
             <${motion.button} whileHover=${{ scale: 1.02 }} whileTap=${{ scale: 0.98 }} onClick=${runPipeline} className="w-full rounded-xl bg-blue-600 text-white font-semibold py-2.5 shadow hover:bg-blue-700">Run Full Pipeline<//>
